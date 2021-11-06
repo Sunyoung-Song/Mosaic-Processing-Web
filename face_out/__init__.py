@@ -26,9 +26,11 @@ def question_delete():
     q_delete = db_session.query(QuestionContent).filter_by(id=id).first()
     if q_delete:
         db_session.delete(q_delete)
+
         db_session.commit()
         flash('글이 삭제되었습니다.')
         return redirect('/mypage')
+
     else:
         return render_template('/user_templates/main.html')
 
@@ -43,7 +45,10 @@ def myquestion_edit():
     date = request.args.get('date', '날짜')
     edit_question = db_session.query(QuestionContent).filter_by(id=id).first()
 
+    comment_list = db_session.query(Comment).filter_by(question_id=id).all()
+
     if request.method == 'POST':
+        #print(request.form['content'])
         if edit_question:
             edit_question.create_date=datetime.now()
 
@@ -55,7 +60,7 @@ def myquestion_edit():
             db_session.commit()
 
         return render_template('/user_templates/question.html',
-                               title=edit_question.title, date=edit_question.create_date, category=category, content=edit_question.content)
+                               title=edit_question.title, date=edit_question.create_date, category=category, content=edit_question.content, comment_list=comment_list)
     else:
         return render_template('/user_templates/myquestion_edit.html', title=title, category=category,
                            content=content, id=id, date=date)
@@ -63,42 +68,64 @@ def myquestion_edit():
 
 @app.route('/category_search', methods=['GET','POST'])
 def category_search():
-    category = request.args.get('category', '카테고리')
 
-    limit = 5   # 한 페이지당 최대 게시물
-    page = int(request.args.get('page', type=int, default=1))   # 페이지 값
+    #category = request.args.get('category', '카테고리')
+    #print(category)
+    # 이렇게 하면 category는 올바르게 나오거든 근데 request.method가 post가 아닌걸로 나와!
 
-    question_list = db_session.query(QuestionContent).filter(QuestionContent.is_secret == 0, QuestionContent.category == category).all()
-    tot_cnt = len(question_list)    # 게시물 총 개수
+    #if request.method == 'POST':
 
-    # list를 각 페이지에 맞게 slice 시킴
-    if page == 1:
-        question_list = question_list[-((page - 1) * limit + limit):]
-    else:
-        question_list = question_list[-((page - 1) * limit + limit):-((page - 1) * limit)]
+        category = request.args.get('category', '카테고리')
+        print(category)
+        # 한 페이지당 최대 게시물
+        limit = 5
+        # 페이지 값
+        page = int(request.args.get('page', type=int, default=1))
 
-    last_page_num = math.ceil(tot_cnt / limit)  # 마지막 페이지 수, 반드시 올림 해야 함.
+        question_list = db_session.query(QuestionContent).filter(QuestionContent.is_secret == 0, QuestionContent.category == category).all()
+# 게시물 총 개수
+        tot_cnt = len(question_list)
 
-    block_size = 5  # 페이지 블럭 5개씩 표기
-    block_num = int((page - 1) / block_size)    # 현재 블럭의 위치 (첫번째 블럭이라면, block_num=0)
+        # list를 각 페이지에 맞게 slice 시킴
+        # question_list = question_list[((page-1)*limit) : ((page-1)*limit+limit)]
+        if page == 1:
+            question_list = question_list[-((page - 1) * limit + limit):]
+        else:
+            question_list = question_list[-((page - 1) * limit + limit):-((page - 1) * limit)]
+        # print((page-1)*limit)
+        # print((page-1)*limit+limit)
 
-    # 현재 블럭의 맨 처음 페이지 넘버 (첫번째 블럭이라면 block_start = 1, 두번째 블럭이라면 block_start = 6)
-    block_start = (block_size * block_num) + 1
-    # 현재 블럭의 맨 끝 페이지 넘버 (첫 번째 블럭이라면, block_end = 5)
-    block_end = block_start + (block_size - 1)
+        # 마지막 페이지 수, 반드시 올림 해야 함.
+        last_page_num = math.ceil(tot_cnt / limit)
 
-    return render_template('/user_templates/q&a.html', question_list=question_list,
+        # 페이지 블럭 5개씩 표기
+        block_size = 5
+        # 현재 블럭의 위치 (첫번째 블럭이라면, block_num=0)
+        block_num = int((page - 1) / block_size)
+
+        # 현재 블럭의 맨 처음 페이지 넘버 (첫번째 블럭이라면 block_start = 1, 두번째 블럭이라면 block_start = 6)
+        block_start = (block_size * block_num) + 1
+        # 현재 블럭의 맨 끝 페이지 넘버 (첫 번째 블럭이라면, block_end = 5)
+        block_end = block_start + (block_size - 1)
+
+        return render_template('/user_templates/q&a.html', question_list=question_list,
                                limit=limit, page=page, tot_cnt=tot_cnt,
                                block_size=block_size, block_num=block_num, block_start=block_start,
                                block_end=block_end, last_page_num=last_page_num,now_user=session['u_id'])
+    #else:
+     #   return render_template('/user_templates/q&a.html')
 
 @app.route('/question_search', methods=['GET','POST'])
 def question_search():
     if request.method == 'POST':
         search = request.form['search']
+        #search_data = db_session.query(QuestionContent).filter_by(QuestionContent.is_secret==0, QuestionContent.content.in_(search)).all()
+        #search_data = db_session.query(QuestionContent).filter(QuestionContent.is_secret == 0, QuestionContent.content.ilike(search)).all()
 
-        limit = 5   # 한 페이지당 최대 게시물
-        page = int(request.args.get('page', type=int, default=1))   # 페이지 값
+        # 한 페이지당 최대 게시물
+        limit = 5
+        # 페이지 값
+        page = int(request.args.get('page', type=int, default=1))
 
         # .all() 이 붙은 순간 list가 됨.
         question_list = []
@@ -106,25 +133,32 @@ def question_search():
         for i in content_list:
             if search in i.content:
                 question_list.append(i)
+        #question_list = db_session.query(QuestionContent).filter(QuestionContent.is_secret == 0, QuestionContent.content.ilike(search)).all()
 
-        tot_cnt = len(question_list)    # 게시물 총 개수
+        # 게시물 총 개수
+        tot_cnt = len(question_list)
 
         # list를 각 페이지에 맞게 slice 시킴
+        # question_list = question_list[((page-1)*limit) : ((page-1)*limit+limit)]
         if page == 1:
             question_list = question_list[-((page - 1) * limit + limit):]
         else:
             question_list = question_list[-((page - 1) * limit + limit):-((page - 1) * limit)]
+        # print((page-1)*limit)
+        # print((page-1)*limit+limit)
 
-        last_page_num = math.ceil(tot_cnt / limit)  # 마지막 페이지 수, 반드시 올림 해야 함.
+        # 마지막 페이지 수, 반드시 올림 해야 함.
+        last_page_num = math.ceil(tot_cnt / limit)
 
-        block_size = 5  # 페이지 블럭 5개씩 표기
-        block_num = int((page - 1) / block_size)    # 현재 블럭의 위치 (첫번째 블럭이라면, block_num=0)
+        # 페이지 블럭 5개씩 표기
+        block_size = 5
+        # 현재 블럭의 위치 (첫번째 블럭이라면, block_num=0)
+        block_num = int((page - 1) / block_size)
 
         # 현재 블럭의 맨 처음 페이지 넘버 (첫번째 블럭이라면 block_start = 1, 두번째 블럭이라면 block_start = 6)
         block_start = (block_size * block_num) + 1
         # 현재 블럭의 맨 끝 페이지 넘버 (첫 번째 블럭이라면, block_end = 5)
         block_end = block_start + (block_size - 1)
-
         if session.get('u_id'):
             return render_template('/user_templates/q&a.html', question_list=question_list,
                                limit=limit, page=page, tot_cnt=tot_cnt,
@@ -135,6 +169,7 @@ def question_search():
                                    limit=limit, page=page, tot_cnt=tot_cnt,
                                    block_size=block_size, block_num=block_num, block_start=block_start,
                                    block_end=block_end, last_page_num=last_page_num)
+    #return render_template('/user_templates/q&a.html', question_list=search_data)
     else:
         return render_template('/user_template/q&a.html')
 
@@ -190,6 +225,7 @@ def comment_delete():
         db_session.delete(c_delete)
         db_session.commit()
         comment_list = db_session.query(Comment).all()
+        #return redirect('/question')
         return render_template('/user_templates/question.html', title=title, date=date, category=category,
                                content=content, id=id, now_user=session['u_id'], writer=writer,
                                comment_list=comment_list)
@@ -204,11 +240,23 @@ def q_write():
         title = request.form['title']
         content = request.form['content']
         create_date = datetime.now()
+        # category = request.form['category']
         category = request.form.get('category', False)
 
+
+        if not title:
+            flash('제목을 입력하세요')
+            return redirect('/q_write')
+
         if not category:
+            # 하나라도 작성하지 않으면 다시 회원가입 화면
             flash('카테고리를 체크해주세요.')
             return redirect('/q_write')
+
+        if not content:
+            flash('내용을 입력하세요')
+            return redirect('/q_write')
+
 
         newQ = QuestionContent()
         newQ.title = title
@@ -220,7 +268,6 @@ def q_write():
             if request.form['is_secret']:
                 newQ.is_secret = True
         except: newQ.is_secret = False
-
         info = db_session.query(User).filter_by(u_id=session['u_id']).first()
         newQ.writer = info.u_id
 
@@ -234,23 +281,33 @@ def q_write():
 
 @app.route('/q&a', methods=['GET', 'POST'])
 def question_notice():
-    limit = 5   # 한 페이지당 최대 게시물
-    page = int(request.args.get('page', type=int, default=1))   # 페이지 값
+    # 한 페이지당 최대 게시물
+    limit = 5
+    # 페이지 값
+    page = int(request.args.get('page', type=int, default=1))
 
+    # .all() 이 붙은 순간 list가 됨.
     question_list = db_session.query(QuestionContent).all()
 
-    tot_cnt = len(question_list)    # 게시물 총 개수
+    # 게시물 총 개수
+    tot_cnt = len(question_list)
 
     # list를 각 페이지에 맞게 slice 시킴
+    # question_list = question_list[((page-1)*limit) : ((page-1)*limit+limit)]
     if page == 1:
         question_list = question_list[-((page - 1) * limit + limit):]
     else:
         question_list = question_list[-((page - 1) * limit + limit):-((page - 1) * limit)]
+    #print((page-1)*limit)
+    #print((page-1)*limit+limit)
 
-    last_page_num = math.ceil(tot_cnt/limit)    # 마지막 페이지 수, 반드시 올림 해야 함.
+    # 마지막 페이지 수, 반드시 올림 해야 함.
+    last_page_num = math.ceil(tot_cnt/limit)
 
-    block_size = 5  # 페이지 블럭 5개씩 표기
-    block_num = int((page-1)/block_size)    # 현재 블럭의 위치 (첫번째 블럭이라면, block_num=0)
+    # 페이지 블럭 5개씩 표기
+    block_size = 5
+    # 현재 블럭의 위치 (첫번째 블럭이라면, block_num=0)
+    block_num = int((page-1)/block_size)
 
     # 현재 블럭의 맨 처음 페이지 넘버 (첫번째 블럭이라면 block_start = 1, 두번째 블럭이라면 block_start = 6)
     block_start = (block_size * block_num)+1
@@ -270,28 +327,41 @@ def question_notice():
 
 @app.route('/mypage')
 def my_page():
+    #print(request.method)
     if session.get('u_id'):
         info = db_session.query(User).filter_by(u_id=session['u_id']).first()
         question = db_session.query(QuestionContent).all()
         imageInfo = db_session.query(ImageInfo).all()
 
-        limit = 5   # 한 페이지당 최대 게시물
-        page = int(request.args.get('page', type=int, default=1))   # 페이지 값
+        # 한 페이지당 최대 게시물
+        limit = 5
+        # 페이지 값
+        page = int(request.args.get('page', type=int, default=1))
+
+        # .all() 이 붙은 순간 list가 됨.
+        # question_list = db_session.query(QuestionContent).all()
 
         question_list = db_session.query(QuestionContent).filter_by(writer=session['u_id']).all()
 
-        tot_cnt = len(question_list)    # 게시물 총 개수
+        # 게시물 총 개수
+        tot_cnt = len(question_list)
 
         # list를 각 페이지에 맞게 slice 시킴
+        # question_list = question_list[((page-1)*limit) : ((page-1)*limit+limit)]
         if page == 1:
             question_list = question_list[-((page - 1) * limit + limit):]
         else:
             question_list = question_list[-((page - 1) * limit + limit):-((page - 1) * limit)]
+        # print((page-1)*limit)
+        # print((page-1)*limit+limit)
 
-        last_page_num = math.ceil(tot_cnt / limit)   # 마지막 페이지 수, 반드시 올림 해야 함.
+        # 마지막 페이지 수, 반드시 올림 해야 함.
+        last_page_num = math.ceil(tot_cnt / limit)
 
-        block_size = 5  # 페이지 블럭 5개씩 표기
-        block_num = int((page - 1) / block_size)    # 현재 블럭의 위치 (첫번째 블럭이라면, block_num=0)
+        # 페이지 블럭 5개씩 표기
+        block_size = 5
+        # 현재 블럭의 위치 (첫번째 블럭이라면, block_num=0)
+        block_num = int((page - 1) / block_size)
 
         # 현재 블럭의 맨 처음 페이지 넘버 (첫번째 블럭이라면 block_start = 1, 두번째 블럭이라면 block_start = 6)
         block_start = (block_size * block_num) + 1
@@ -304,13 +374,20 @@ def my_page():
                                block_size=block_size,
                                block_num=block_num, block_start=block_start, block_end=block_end,
                                last_page_num=last_page_num, imageinfo=imageInfo)
+
+
     else:
         flash('로그인 후 이용가능합니다.')
         return redirect('/login')
 
+
 @app.route('/myinfo_edit', methods=['GET','POST'])
 def myinfo_edit():
     edit = db_session.query(User).filter_by(u_id=session['u_id']).first()
+    image_edit = db_session.query(ImageInfo).filter_by(user=session['u_id']).all()
+    question_edit = db_session.query(QuestionContent).filter_by(writer=session['u_id']).all()
+    comment_edit = db_session.query(Comment).filter_by(commenter=session['u_id']).all()
+
     if request.method == 'GET':
         return render_template('/user_templates/myinfo_edit.html',
                                now_uname=edit.u_name, now_uphone=edit.u_phone, now_uid=edit.u_id, now_upw=edit.u_pw)
@@ -323,6 +400,23 @@ def myinfo_edit():
             edit.u_id = request.form['u_id']
         if request.form['u_pw'] != edit.u_pw:
             edit.u_pw = request.form['u_pw']
+
+        for u_image in image_edit:
+            if request.form['u_id'] != u_image.user:
+                u_image.user = request.form['u_id']
+                db_session.add(u_image)
+
+        for u_question in question_edit:
+            if request.form['u_id'] != u_question.writer:
+                u_question.writer = request.form['u_id']
+                db_session.add(u_question)
+
+        for u_comment in comment_edit:
+            if request.form['u_id'] != u_comment.commenter:
+                u_comment.commenter = request.form['u_id']
+                db_session.add(u_comment)
+
+
         db_session.add(edit)
         db_session.commit()
         session['u_id'] = edit.u_id
@@ -360,18 +454,21 @@ def index():
 # main.html과 mosaic_process.html에서 버튼 클릭 시 파일 업로드 처리
 @app.route('/save_file', methods = ['GET', 'POST'])
 def upload_file():
+
     d_path = request.args.get('path','경로')
     image_extenstion = ['ai', 'bmp', 'jpeg', 'jpg', 'jpe', 'jfif', 'jp2', 'j2c', 'pcx', 'psd', 'tga', 'taga',
                         'png', 'tif', 'tiff']
     video_extenstion = ['mp4', 'm4v', 'avi', 'wmv', 'mwa', 'asf', 'mpg', 'mpeg', 'ts', 'mkv', 'mov', '3gp', '3g2','gif',
                         'webm']
     if request.method == 'POST':
+
         # 모자이크에서 제외할 이미지
         f_input = request.files['file1']
         # 모자이크 할 파일 (단체사진)
         f_output = request.files['file2']
 
         if f_input.filename == '':
+            print("잘 들어감")
             # 모자이크에서 제외할 이미지가 없을 때 전체 인물 모자이크 처리코드
             downloads_path = './static/downloads'
             d_path = './downloads/'
@@ -395,6 +492,8 @@ def upload_file():
                 img=face_recog_imageOnly.process(img)
                 face_recog_imageOnly.save(downloads_path, img, filename)
                 d_path=d_path+filename
+                print("썸네일")
+                print(d_path)
                 return render_template('/user_templates/save_file.html', filename=filename, path=d_path)
 
             elif file_extenstion in video_extenstion:   # 단체 사진이 비디오 파일인 경우,
@@ -402,10 +501,14 @@ def upload_file():
                     info = db_session.query(User).filter_by(u_id=session['u_id']).first()
                     filename = info.u_id + '-' + filename2
                     downloads_path = './static/member_video_downloads'
+                    #d_path = './member_video_downloads/'
 
                 f_output.save('./static/output_uploads/' + secure_filename(filename2))  # 모자이크 할 video file (단체사진)
                 path2 = './static/output_uploads/' + filename2
                 filename=filename.split(".")[0] + '.mp4'
+                #filename = filename
+                print("check")
+                print(filename)
                 img = face_recog_videoOnly.input(path2)
                 downloads_path = downloads_path + '/' + filename
                 fn = filename.split(".")[0] + ".jpg"
@@ -414,7 +517,15 @@ def upload_file():
                 writer = face_recog_videoOnly.process(img, downloads_path, d_path2)
                 face_recog_videoOnly.save(writer)
 
+
+
+                # 썸네일 생성
+                #img = still_cut.makeStillCutImage(downloads_path)
+
+                #still_cut.save(img, d_path2)
+
                 return render_template('/user_templates/save_file.html', filename=filename, path=d_path)
+
 
         elif f_input.filename != '' and f_output.filename != '':    # 전체 이미지가 잘 들어온 경우, f_input 제외한 모든 대상 모자이크 처리
             downloads_path = './static/downloads'
@@ -427,6 +538,7 @@ def upload_file():
             filename = filename2
 
             if file_extenstion in image_extenstion:     # 단체 사진이 이미지 파일인 경우,
+
                 if session.get('u_id'):
                     info = db_session.query(User).filter_by(u_id=session['u_id']).first()
                     filename = info.u_id + '-' + filename2
@@ -444,34 +556,46 @@ def upload_file():
                 imgTest = face_recog_image.process(imgTest, imgTrain)
                 face_recog_image.save(imgTest, downloads_path, filename)
                 d_path = d_path + filename
+                print(d_path)
                 return render_template('/user_templates/save_file.html', filename=filename, path=d_path)
 
             elif file_extenstion in video_extenstion:   # 단체 사진이 비디오 파일인 경우,
+
                 if session.get('u_id'):
                     info = db_session.query(User).filter_by(u_id=session['u_id']).first()
                     filename = info.u_id + '-' + filename2
                     downloads_path = './static/member_video_downloads'
+                    #d_path = './member_video_downloads/'
 
                 f_input.save('./static/input_uploads/' + secure_filename(filename1))  # 모자이크에서 제외할 이미지
                 f_output.save('./static/output_uploads/' + secure_filename(filename2))  # 모자이크 할 video file (단체사진)
                 path1 = './static/input_uploads/' + filename1
                 path2 = './static/output_uploads/' + filename2
-                filename=filename.split(".")[0] + '.mp4'
 
+                filename=filename.split(".")[0] + '.mp4'
+                print("check")
+                print(filename)
                 # 서윤이가 보낸 코드 실행 부분
                 img = face_recog_video.input1(path1)  # 모자이크에서 제외할 이미지
                 cap = face_recog_video.input2(path2)  # 모자이크 할 video file (단체사진)
+                #d_path = d_path + filename
                 downloads_path = downloads_path + '/' + filename
                 fn = filename.split(".")[0] + ".jpg"
                 d_path = './thumnail/' + fn
                 d_path2 = './static/thumnail/'+fn
                 writer = face_recog_video.process(cap, img, downloads_path, d_path2)
                 face_recog_video.save(writer)
+
+
+
+                print(downloads_path)
                 return render_template('/user_templates/save_file.html', filename=filename, path=d_path)
 
             else:   # 지원하지 않는 형식
+
                 flash('지원하지 않는 확장자입니다.')
                 return render_template('/user_templates/main.html')
+
         else :
             # 그 이외의 모든 경우
             flash('모자이크 할 파일을 업로드 해주세요')
@@ -493,12 +617,15 @@ def mypage_image():
         path = './member_img_downloads/' + filename # 이미지는 썸네일을 여기서 가져다 쓰고
     elif file_extenstion in video_extenstion:  # 단체 사진이 비디오 파일인 경우,
         fn = filename.split(".")[0] + ".jpg"
+        #d_path = './thumnail/' + fn
         path = './thumnail/' + fn       # 비디오는 썸네일을 여기서 가져다 쓰거든..!
     else:
         flash('예기치 못한 오류가 발생했습니다.')
         return render_template('/user_templates/save_file.html')
 
+    print(filename)
     if session.get('u_id'):
+        #image = ImageInfo(url=downloads_path, user=session['u_id'], date=datetime.now(), name=filename)
         image = ImageInfo()
         image.url = path
         image.user = session['u_id']
@@ -525,18 +652,25 @@ def download_file():
     # 파일 이름 받아옴
     filename = request.args.get('filename', '파일이름')
     file_extenstion = filename.split(".")[-1]
+    #filename2 = filename + '.mp4'
+
+    # print(filename)
     downloads_path = './static/downloads/'
 
     if file_extenstion in image_extenstion:  # 단체 사진이 이미지 파일인 경우,
         if session.get('u_id'):
+            info = db_session.query(User).filter_by(u_id=session['u_id']).first()
             downloads_path = './static/member_img_downloads/'
+
     elif file_extenstion in video_extenstion:  # 단체 사진이 비디오 파일인 경우,
         if session.get('u_id'):
+            info = db_session.query(User).filter_by(u_id=session['u_id']).first()
             downloads_path = './static/member_video_downloads/'
     else:
         flash('예기치 못한 오류가 발생했습니다.')
         return render_template('/user_templates/save_file.html')
 
+    print(filename)
     return send_file(downloads_path + filename, attachment_filename=filename, as_attachment=True)
 
 
@@ -591,9 +725,12 @@ def login():
         if data is not None:  # 쿼리 데이터가 존재하면
             session['u_id'] = u_id
             session['logged_in'] = True
+            # return "로그인 성공"
+            # return render_template('/user_templates/main.html')   # 쿼리 데이터가 있으면 main으로
             return render_template('/user_templates/main.html', logged_in=True)  # 쿼리 데이터가 있으면 main으로
         else:
             # 쿼리 데이터가 없으면 다시 login
+            # return "로그인 실패"
             flash('잘못 입력하셨습니다. 다시 로그인해주세요.')
             return redirect('/login')
 
